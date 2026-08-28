@@ -24,7 +24,7 @@ type Options struct {
 	// TargetVersion is the requested destination format. Ignored when
 	// SameVersion is set; required otherwise. Exactly one of the two must
 	// be provided.
-	TargetVersion lmdb.LMDBVersion
+	TargetVersion lmdb.Format
 	// SameVersion copies into the same format as the source.
 	SameVersion bool
 
@@ -55,8 +55,8 @@ type Options struct {
 
 // Result summarizes a successful conversion.
 type Result struct {
-	SourceVersion lmdb.LMDBVersion
-	DestVersion   lmdb.LMDBVersion
+	SourceVersion lmdb.Format
+	DestVersion   lmdb.Format
 	DBIs          int
 	Entries       uint64
 	TxnID         int64
@@ -80,7 +80,7 @@ type dbInfo struct {
 
 type plan struct {
 	srcPath, dstPath lmdbpath.Path
-	srcVer, dstVer   lmdb.LMDBVersion
+	srcVer, dstVer   lmdb.Format
 	mapSize          int64
 	usedBytes        int64
 	srcMapSize       int64

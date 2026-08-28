@@ -130,7 +130,7 @@ func parseSize(s string) (int64, error) {
 	return int64(size.Bytes()), nil
 }
 
-func parseVersion(s string) (lmdb.LMDBVersion, error) {
+func parseVersion(s string) (lmdb.Format, error) {
 	switch s {
 	case "0.9", "09", "9":
 		return lmdb.V09, nil

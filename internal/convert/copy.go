@@ -29,7 +29,7 @@ func openDest(p *plan, opts Options) (*lmdb.Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := env.SetLMDBVersion(p.dstVer); err != nil {
+	if err := env.SetFormat(p.dstVer); err != nil {
 		return nil, err
 	}
 	if err := env.SetMapSize(p.mapSize); err != nil {

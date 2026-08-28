@@ -53,7 +53,7 @@ func TestConvert_Downgrade(t *testing.T) {
 }
 
 func TestConvert_SameVersion(t *testing.T) {
-	for _, ver := range []lmdb.LMDBVersion{lmdb.V09, lmdb.V10} {
+	for _, ver := range []lmdb.Format{lmdb.V09, lmdb.V10} {
 		t.Run(ver.String(), func(t *testing.T) {
 			src, dst := fixturePaths(t)
 			buildFixture(t, src, ver, false, fixtureTxnID)
@@ -271,7 +271,7 @@ func TestConvert_PrevSnapshot(t *testing.T) {
 // does not increment the transaction ID, while a Put+Del of the same key
 // in one transaction increments it by exactly one.
 func TestEmptyCommitDoesNotIncrementTxnID(t *testing.T) {
-	for _, ver := range []lmdb.LMDBVersion{lmdb.V09, lmdb.V10} {
+	for _, ver := range []lmdb.Format{lmdb.V09, lmdb.V10} {
 		t.Run(ver.String(), func(t *testing.T) {
 			env := openTestEnv(t, filepath.Join(t.TempDir(), "env"), ver, false, false)
 			defer env.Close()

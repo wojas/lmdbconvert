@@ -94,13 +94,13 @@ func fixtureData() []fixtureDBI {
 	return dbis
 }
 
-func openTestEnv(t *testing.T, path string, ver lmdb.LMDBVersion, noSubdir, readonly bool) *lmdb.Env {
+func openTestEnv(t *testing.T, path string, ver lmdb.Format, noSubdir, readonly bool) *lmdb.Env {
 	t.Helper()
 	env, err := lmdb.NewEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := env.SetLMDBVersion(ver); err != nil {
+	if err := env.SetFormat(ver); err != nil {
 		t.Fatal(err)
 	}
 	if err := env.SetMaxDBs(64); err != nil {
@@ -130,7 +130,7 @@ func openTestEnv(t *testing.T, path string, ver lmdb.LMDBVersion, noSubdir, read
 
 // buildFixture creates a database with the fixtureData content at path and
 // raises its last transaction ID to txnID.
-func buildFixture(t *testing.T, path string, ver lmdb.LMDBVersion, noSubdir bool, txnID int64) {
+func buildFixture(t *testing.T, path string, ver lmdb.Format, noSubdir bool, txnID int64) {
 	t.Helper()
 	env := openTestEnv(t, path, ver, noSubdir, false)
 	defer env.Close()
@@ -193,7 +193,7 @@ func bumpTxnID(t *testing.T, env *lmdb.Env, target int64) {
 // checkConverted verifies that the database at dstPath has the expected
 // format and exactly the same DBIs, flags, data and transaction ID as the
 // database at srcPath.
-func checkConverted(t *testing.T, srcPath, dstPath string, noSubdir bool, srcVer, dstVer lmdb.LMDBVersion) {
+func checkConverted(t *testing.T, srcPath, dstPath string, noSubdir bool, srcVer, dstVer lmdb.Format) {
 	t.Helper()
 	var sniffFlags uint
 	if noSubdir {

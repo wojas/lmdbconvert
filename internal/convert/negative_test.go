@@ -220,10 +220,10 @@ func TestConvert_MapSizeTooSmall(t *testing.T) {
 
 func TestDirection(t *testing.T) {
 	cases := []struct {
-		src     lmdb.LMDBVersion
-		target  lmdb.LMDBVersion
+		src     lmdb.Format
+		target  lmdb.Format
 		same    bool
-		want    lmdb.LMDBVersion
+		want    lmdb.Format
 		wantErr bool
 	}{
 		{src: lmdb.V09, target: lmdb.V10, want: lmdb.V10},

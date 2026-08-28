@@ -16,7 +16,7 @@ const mdbDBSize = 48
 // enumerateDBIs lists all named databases via the root DBI. The root DBI
 // must contain only named-database references; anything else is an error,
 // as silently skipping entries could lose data during a conversion.
-func enumerateDBIs(txn *lmdb.Txn, ver lmdb.LMDBVersion, maxDBs int) ([]*dbInfo, error) {
+func enumerateDBIs(txn *lmdb.Txn, ver lmdb.Format, maxDBs int) ([]*dbInfo, error) {
 	root, err := txn.OpenRoot(0)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func enumerateDBIs(txn *lmdb.Txn, ver lmdb.LMDBVersion, maxDBs int) ([]*dbInfo, 
 
 // dbiKeyName converts a root DBI key into a database name. The 1.0 format
 // stores names with a trailing NUL byte; the 0.9 format does not.
-func dbiKeyName(key []byte, ver lmdb.LMDBVersion) (string, error) {
+func dbiKeyName(key []byte, ver lmdb.Format) (string, error) {
 	if ver == lmdb.V10 {
 		if len(key) == 0 || key[len(key)-1] != 0 {
 			return "", fmt.Errorf("root database key %q lacks the trailing NUL byte expected in the 1.0 format", key)

@@ -82,7 +82,7 @@ func preflight(opts Options) (*plan, *lmdb.Env, error) {
 
 // direction determines the destination format. The target version must
 // always be explicit: either Options.TargetVersion or Options.SameVersion.
-func direction(srcVer lmdb.LMDBVersion, opts Options) (lmdb.LMDBVersion, error) {
+func direction(srcVer lmdb.Format, opts Options) (lmdb.Format, error) {
 	if opts.SameVersion {
 		if opts.TargetVersion != lmdb.FormatUnknown {
 			return 0, errors.New("--target and --same-version are mutually exclusive")
@@ -140,7 +140,7 @@ func openSource(p *plan, opts Options) (*lmdb.Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := env.SetLMDBVersion(p.srcVer); err != nil {
+	if err := env.SetFormat(p.srcVer); err != nil {
 		return nil, err
 	}
 	if err := env.SetMapSize(0); err != nil { // determine automatically
