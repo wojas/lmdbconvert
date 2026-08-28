@@ -34,6 +34,13 @@ type Options struct {
 	WriteMap  bool  // open the destination with lmdb.WriteMap
 	BatchSize int64 // commit destination every N entries; 0 = single txn
 
+	// PrevSnapshot opens the source with lmdb.PrevSnapshot, converting the
+	// previous snapshot instead of the latest transaction (e.g. to recover
+	// from a corrupted last commit). The destination then also ends at the
+	// previous snapshot's transaction ID. Only 1.0-format sources support
+	// this.
+	PrevSnapshot bool
+
 	Progress progress.Reporter
 	Log      *slog.Logger
 }
@@ -87,13 +94,17 @@ func Run(opts Options) (*Result, error) {
 	}
 	defer srcEnv.Close()
 
-	opts.Log.Info("converting database",
+	logAttrs := []any{
 		"source", p.srcPath.EnvPath,
 		"source_version", p.srcVer.String(),
 		"dest", p.dstPath.EnvPath,
 		"dest_version", p.dstVer.String(),
 		"map_size", p.mapSize,
-	)
+	}
+	if opts.PrevSnapshot {
+		logAttrs = append(logAttrs, "prev_snapshot", true)
+	}
+	opts.Log.Info("converting database", logAttrs...)
 
 	var dstEnv *lmdb.Env
 	defer func() {

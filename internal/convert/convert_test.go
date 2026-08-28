@@ -158,6 +158,55 @@ func TestConvert_ForceOverwrite(t *testing.T) {
 	checkConverted(t, src, dst, false, lmdb.V09, lmdb.V10)
 }
 
+func TestConvert_PrevSnapshot(t *testing.T) {
+	src, dst := fixturePaths(t)
+	buildFixture(t, src, lmdb.V10, false, fixtureTxnID)
+
+	// One more committed transaction; a previous-snapshot conversion must
+	// not include it and must end at the previous transaction ID.
+	env := openTestEnv(t, src, lmdb.V10, false, false)
+	err := env.Update(func(txn *lmdb.Txn) error {
+		dbi, err := txn.OpenDBI("plain", 0)
+		if err != nil {
+			return err
+		}
+		return txn.Put(dbi, []byte("marker"), []byte("latest"), 0)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	env.Close()
+
+	res := runConvert(t, Options{
+		Source:        src,
+		Dest:          dst,
+		TargetVersion: lmdb.V09,
+		PrevSnapshot:  true,
+	})
+	if res.TxnID != fixtureTxnID {
+		t.Errorf("result TxnID = %d, want %d (previous snapshot)", res.TxnID, fixtureTxnID)
+	}
+
+	denv := openTestEnv(t, dst, lmdb.V09, false, true)
+	defer denv.Close()
+	err = denv.View(func(txn *lmdb.Txn) error {
+		dbi, err := txn.OpenDBI("plain", 0)
+		if err != nil {
+			return err
+		}
+		if _, err := txn.Get(dbi, []byte("marker")); !lmdb.IsNotFound(err) {
+			t.Errorf("marker from the latest transaction present in previous-snapshot conversion (err=%v)", err)
+		}
+		if _, err := txn.Get(dbi, []byte("key-0000")); err != nil {
+			t.Errorf("fixture data missing from previous-snapshot conversion: %v", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestEmptyCommitDoesNotIncrementTxnID pins the engine behavior that the
 // transaction ID padding in pad.go depends on: an empty write transaction
 // does not increment the transaction ID, while a Put+Del of the same key

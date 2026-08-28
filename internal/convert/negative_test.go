@@ -182,6 +182,18 @@ func TestConvert_JunkInRootDBI(t *testing.T) {
 	}, "not a named database reference")
 }
 
+func TestConvert_PrevSnapshotRequires10(t *testing.T) {
+	src, dst := fixturePaths(t)
+	buildFixture(t, src, lmdb.V09, false, fixtureTxnID)
+
+	mustFail(t, Options{
+		Source:        src,
+		Dest:          dst,
+		TargetVersion: lmdb.V10,
+		PrevSnapshot:  true,
+	}, "--prev-snapshot requires a 1.0-format source")
+}
+
 func TestConvert_TooManyDBIs(t *testing.T) {
 	src, dst := fixturePaths(t)
 	buildFixture(t, src, lmdb.V09, false, fixtureTxnID)

@@ -56,6 +56,11 @@ Run `lmdbconvert --help` for the full list. Notable ones:
 - `--force` removes an existing destination first. It only removes the
   data and lock files, and refuses if the destination is not an LMDB
   database or an empty directory.
+- `--prev-snapshot` converts the source's previous snapshot instead of
+  the latest transaction (LMDB keeps the two most recent), e.g. to
+  recover from a corrupted last commit. The destination then ends at the
+  previous snapshot's transaction ID. Only 1.0-format sources support
+  this; the 0.9 engine has no equivalent.
 - `--bar` shows an interactive progress bar on stderr; the default is
   periodic log lines (every 10% or `--progress-interval`), suitable for
   non-interactive use. All logging uses `log/slog` on stderr.

@@ -39,6 +39,11 @@ func preflight(opts Options) (*plan, *lmdb.Env, error) {
 		return nil, nil, err
 	}
 
+	if opts.PrevSnapshot && p.srcVer != lmdb.V10 {
+		return nil, nil, fmt.Errorf("--prev-snapshot requires a 1.0-format source; " +
+			"the 0.9 engine has no previous-snapshot support")
+	}
+
 	p.dstPath, err = lmdbpath.ResolveNew(opts.Dest, p.srcPath.NoSubdir)
 	if err != nil {
 		return nil, nil, err
@@ -146,6 +151,9 @@ func openSource(p *plan, opts Options) (*lmdb.Env, error) {
 	}
 	if opts.NoLock {
 		flags |= lmdb.NoLock
+	}
+	if opts.PrevSnapshot {
+		flags |= lmdb.PrevSnapshot
 	}
 	if err := env.Open(p.srcPath.EnvPath, flags, 0o644); err != nil {
 		return nil, fmt.Errorf("open source %s: %w", p.srcPath.EnvPath, err)

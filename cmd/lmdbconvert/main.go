@@ -29,6 +29,7 @@ var (
 	flagForce            = pflag.Bool("force", false, "Remove an existing destination database before converting")
 	flagVerify           = pflag.Bool("verify", false, "After converting, re-read both databases and compare every key and value")
 	flagNoLock           = pflag.Bool("no-lock", false, "Open the source without a lock file (for read-only media; the source must not be written concurrently)")
+	flagPrevSnapshot     = pflag.Bool("prev-snapshot", false, "Convert the source's previous snapshot instead of the latest transaction, e.g. to recover from a corrupted last commit (1.0-format sources only)")
 	flagWriteMap         = pflag.Bool("writemap", false, "Use a writable memory map for the destination (faster for huge databases)")
 	flagBatchSize        = pflag.Int64("batch-size", 0, "Commit destination entries in batches of N instead of a single transaction (escape hatch for huge databases; may prevent exact transaction ID matching)")
 	flagBar              = pflag.Bool("bar", false, "Show an interactive progress bar on stderr instead of periodic log lines")
@@ -74,15 +75,16 @@ func parseOptions(args []string) (*convert.Options, error) {
 		return nil, fmt.Errorf("expected exactly 2 arguments (SOURCE and DEST), got %d", len(args))
 	}
 	opts := &convert.Options{
-		Source:      args[0],
-		Dest:        args[1],
-		SameVersion: *flagSameVersion,
-		MaxDBs:      *flagMaxDBs,
-		Force:       *flagForce,
-		NoLock:      *flagNoLock,
-		Verify:      *flagVerify,
-		WriteMap:    *flagWriteMap,
-		BatchSize:   *flagBatchSize,
+		Source:       args[0],
+		Dest:         args[1],
+		SameVersion:  *flagSameVersion,
+		MaxDBs:       *flagMaxDBs,
+		Force:        *flagForce,
+		NoLock:       *flagNoLock,
+		Verify:       *flagVerify,
+		WriteMap:     *flagWriteMap,
+		BatchSize:    *flagBatchSize,
+		PrevSnapshot: *flagPrevSnapshot,
 	}
 
 	switch {
