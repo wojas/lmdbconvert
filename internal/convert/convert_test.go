@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -25,6 +26,20 @@ func TestConvert_Upgrade(t *testing.T) {
 	res := runConvert(t, Options{Source: src, Dest: dst, TargetVersion: lmdb.V10})
 	if res.TxnID != fixtureTxnID {
 		t.Errorf("result TxnID = %d, want %d", res.TxnID, fixtureTxnID)
+	}
+	if res.SourceUsedBytes <= 0 || res.DestUsedBytes <= 0 {
+		t.Errorf("used bytes not recorded: source=%d dest=%d", res.SourceUsedBytes, res.DestUsedBytes)
+	}
+	if res.SourceMapSize != testMapSize {
+		t.Errorf("SourceMapSize = %d, want %d", res.SourceMapSize, testMapSize)
+	}
+	if st, err := os.Stat(filepath.Join(dst, "data.mdb")); err != nil {
+		t.Error(err)
+	} else if res.DestFileSize != st.Size() {
+		t.Errorf("DestFileSize = %d, want %d", res.DestFileSize, st.Size())
+	}
+	if res.SourceFileSize <= 0 {
+		t.Errorf("SourceFileSize = %d, want > 0", res.SourceFileSize)
 	}
 	checkConverted(t, src, dst, false, lmdb.V09, lmdb.V10)
 }

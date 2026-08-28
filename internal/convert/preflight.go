@@ -68,6 +68,10 @@ func preflight(opts Options) (*plan, *lmdb.Env, error) {
 		return nil, nil, err
 	}
 	p.usedBytes = (info.LastPNO + 1) * int64(stat.PSize)
+	p.srcMapSize = info.MapSize
+	if st, err := os.Stat(p.srcPath.DataFile()); err == nil {
+		p.srcFileSize = st.Size()
+	}
 	p.mapSize, err = computeMapSize(info.MapSize, p.usedBytes, opts.MapSize)
 	if err != nil {
 		srcEnv.Close()

@@ -6,9 +6,11 @@ package convert
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/PowerDNS/lmdb-go/v2/lmdb"
+	"github.com/c2h5oh/datasize"
 
 	"github.com/wojas/lmdbconvert/internal/lmdbpath"
 	"github.com/wojas/lmdbconvert/internal/progress"
@@ -58,8 +60,14 @@ type Result struct {
 	DBIs          int
 	Entries       uint64
 	TxnID         int64
-	MapSize       int64
+	MapSize       int64 // destination map size
 	Duration      time.Duration
+
+	SourceMapSize   int64
+	SourceUsedBytes int64 // pages used by the source, in bytes
+	DestUsedBytes   int64 // pages used by the destination, in bytes
+	SourceFileSize  int64 // source data file size on disk
+	DestFileSize    int64 // destination data file size on disk
 }
 
 type dbInfo struct {
@@ -75,6 +83,8 @@ type plan struct {
 	srcVer, dstVer   lmdb.LMDBVersion
 	mapSize          int64
 	usedBytes        int64
+	srcMapSize       int64
+	srcFileSize      int64
 	dbis             []*dbInfo
 	totalEntries     uint64
 	snapshotTxnID    int64
@@ -186,10 +196,23 @@ func Run(opts Options) (*Result, error) {
 	if err := dstEnv.Sync(true); err != nil {
 		return nil, fmt.Errorf("sync destination: %w", err)
 	}
+	dstInfo, err := dstEnv.Info()
+	if err != nil {
+		return nil, err
+	}
+	dstStat, err := dstEnv.Stat()
+	if err != nil {
+		return nil, err
+	}
 	if err := dstEnv.Close(); err != nil {
 		return nil, fmt.Errorf("close destination: %w", err)
 	}
 	dstEnv = nil
+	dstUsed := (dstInfo.LastPNO + 1) * int64(dstStat.PSize)
+	var dstFileSize int64
+	if st, serr := os.Stat(p.dstPath.DataFile()); serr == nil {
+		dstFileSize = st.Size()
+	}
 
 	var sniffFlags uint
 	if p.dstPath.NoSubdir {
@@ -203,14 +226,32 @@ func Run(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("destination has format %s, expected %s", gotVer, p.dstVer)
 	}
 
+	opts.Log.Info("size statistics",
+		"used_before", humanBytes(p.usedBytes),
+		"used_after", humanBytes(dstUsed),
+		"used_change", changePct(p.usedBytes, dstUsed),
+		"file_before", humanBytes(p.srcFileSize),
+		"file_after", humanBytes(dstFileSize),
+		"file_change", changePct(p.srcFileSize, dstFileSize),
+		"map_before", humanBytes(p.srcMapSize),
+		"map_after", humanBytes(dstInfo.MapSize),
+		"map_change", changePct(p.srcMapSize, dstInfo.MapSize),
+	)
+
 	res := &Result{
 		SourceVersion: p.srcVer,
 		DestVersion:   p.dstVer,
 		DBIs:          len(p.dbis),
 		Entries:       p.totalEntries,
 		TxnID:         finalTxnID,
-		MapSize:       p.mapSize,
+		MapSize:       dstInfo.MapSize,
 		Duration:      time.Since(start),
+
+		SourceMapSize:   p.srcMapSize,
+		SourceUsedBytes: p.usedBytes,
+		DestUsedBytes:   dstUsed,
+		SourceFileSize:  p.srcFileSize,
+		DestFileSize:    dstFileSize,
 	}
 	opts.Log.Info("conversion complete",
 		"dest", p.dstPath.EnvPath,
@@ -234,6 +275,18 @@ var dbiFlagNames = []struct {
 	{"DUPFIXED", lmdb.DupFixed},
 	{"INTEGERDUP", lmdb.IntegerDup},
 	{"REVERSEDUP", lmdb.ReverseDup},
+}
+
+func humanBytes(n int64) string {
+	return datasize.ByteSize(n).HumanReadable()
+}
+
+// changePct formats the relative change from before to after, e.g. "-25.0%".
+func changePct(before, after int64) string {
+	if before <= 0 {
+		return "n/a"
+	}
+	return fmt.Sprintf("%+.1f%%", (float64(after)-float64(before))/float64(before)*100)
 }
 
 func flagString(flags uint) string {
