@@ -89,14 +89,66 @@ Exit codes: `0` success, `2` usage error, `1` any other failure.
 - A crash mid-conversion leaves a partial destination; simply rerun with
   `--force`.
 
-## Building
+## Installation
 
-Requires CGO and (for now) a checkout of the unpublished lmdb-go v2
-module next to this repository (see the `replace` directive in `go.mod`):
+No familiarity with Go development is needed; building produces a single
+self-contained binary with both LMDB engines compiled in.
+
+### 1. One-time prerequisites
+
+- A 64-bit Linux or macOS system. (Windows is not supported: the LMDB
+  1.0 engine is not available there.)
+- **Go 1.21 or newer.** Install with your package manager or from
+  <https://go.dev/dl/>:
+  - macOS: `brew install go`
+  - Debian/Ubuntu: `sudo apt install golang-go`
+
+  Check that it works with `go version`.
+- **A C compiler** (the LMDB engines are C code that gets compiled in):
+  - macOS: `xcode-select --install`
+  - Debian/Ubuntu: `sudo apt install build-essential`
+
+### 2. Build
 
 ```
-go build -o bin/lmdbconvert ./cmd/lmdbconvert
+git clone https://github.com/wojas/lmdbconvert.git
+cd lmdbconvert
+go build -o lmdbconvert ./cmd/lmdbconvert
+```
+
+`go build` automatically downloads the required libraries; no further
+setup is needed. The result is a single `lmdbconvert` binary in the
+current directory with no runtime dependencies.
+
+### 3. Install the binary
+
+Copy it to a directory in your `PATH`, for example:
+
+```
+sudo install -m 0755 lmdbconvert /usr/local/bin/
+lmdbconvert --help
+```
+
+> **Note:** `go install github.com/wojas/lmdbconvert/cmd/lmdbconvert@latest`
+> does not work yet. lmdb-go v2 is unreleased, so this module pins a
+> development commit from a fork via a `replace` directive in `go.mod`,
+> which `go install` refuses; clone and build as shown above instead.
+
+## Development
+
+```
+go build ./...
 go test ./...
+go vet ./...
+```
+
+The lmdb-go v2 dependency is pinned to a specific development commit,
+fetched from the `wojas/lmdb-go` fork through the `replace` directive in
+`go.mod`. To work against a local lmdb-go checkout instead, temporarily
+point the replace at it:
+
+```
+go mod edit -replace github.com/PowerDNS/lmdb-go/v2=../lmdb-go
 ```
 
 ## Repository layout
