@@ -1,6 +1,7 @@
 package convert
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"syscall"
@@ -53,15 +54,29 @@ func openDest(p *plan, opts Options) (*lmdb.Env, error) {
 	return env, nil
 }
 
-// putFlagsFor returns the put flags for bulk-loading a database whose
-// contents arrive in the source's storage order. Plain Append fails with
-// KeyExist on the second duplicate of a DupSort key, so DupSort databases
-// need AppendDup as well.
-func putFlagsFor(dbiFlags uint) uint {
-	if dbiFlags&lmdb.DupSort != 0 {
-		return lmdb.Append | lmdb.AppendDup
+// appendPutter picks the put flags for bulk-loading entries that arrive in
+// the source's storage order. Append may only be passed while the key
+// strictly increases: mdb_cursor_put returns KeyExist for key <= last-key
+// before its duplicate handling is ever reached, so additional duplicates
+// of the current DupSort key must be written with AppendDup alone.
+type appendPutter struct {
+	dupSort bool
+	prevKey []byte // references the source mmap; valid for the whole source txn
+}
+
+func newAppendPutter(dbiFlags uint) *appendPutter {
+	return &appendPutter{dupSort: dbiFlags&lmdb.DupSort != 0}
+}
+
+func (a *appendPutter) flags(key []byte) uint {
+	if !a.dupSort {
+		return lmdb.Append
 	}
-	return lmdb.Append
+	if a.prevKey != nil && bytes.Equal(key, a.prevKey) {
+		return lmdb.AppendDup
+	}
+	a.prevKey = key
+	return lmdb.Append | lmdb.AppendDup
 }
 
 // copyAll creates all destination DBIs with the source flags and copies
@@ -118,7 +133,7 @@ func copyDBI(srcTxn, dstTxn *lmdb.Txn, db *dbInfo, ph copyPhase) error {
 	}
 	defer dstCur.Close()
 
-	putFlags := putFlagsFor(db.Flags)
+	putter := newAppendPutter(db.Flags)
 	for {
 		k, v, err := srcCur.Get(nil, nil, lmdb.Next)
 		if lmdb.IsNotFound(err) {
@@ -127,7 +142,7 @@ func copyDBI(srcTxn, dstTxn *lmdb.Txn, db *dbInfo, ph copyPhase) error {
 		if err != nil {
 			return fmt.Errorf("read database %q: %w", db.Name, err)
 		}
-		if err := dstCur.Put(k, v, putFlags); err != nil {
+		if err := dstCur.Put(k, v, putter.flags(k)); err != nil {
 			return wrapPutError(err, db.Name)
 		}
 		ph.Add(1)
@@ -160,7 +175,7 @@ func copyBatched(srcTxn *lmdb.Txn, dstEnv *lmdb.Env, p *plan, opts Options, ph c
 		if err != nil {
 			return fmt.Errorf("database %q: %w", db.Name, err)
 		}
-		putFlags := putFlagsFor(db.Flags)
+		putter := newAppendPutter(db.Flags)
 		done := false
 		for !done {
 			err := dstEnv.Update(func(dstTxn *lmdb.Txn) error {
@@ -178,7 +193,7 @@ func copyBatched(srcTxn *lmdb.Txn, dstEnv *lmdb.Env, p *plan, opts Options, ph c
 					if err != nil {
 						return fmt.Errorf("read database %q: %w", db.Name, err)
 					}
-					if err := dstCur.Put(k, v, putFlags); err != nil {
+					if err := dstCur.Put(k, v, putter.flags(k)); err != nil {
 						return wrapPutError(err, db.Name)
 					}
 					ph.Add(1)

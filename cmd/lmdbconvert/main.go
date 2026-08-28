@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/PowerDNS/lmdb-go/v2/lmdb"
@@ -98,16 +99,31 @@ func parseOptions(args []string) (*convert.Options, error) {
 	}
 
 	if *flagMapSize != "" {
-		var size datasize.ByteSize
-		if err := size.UnmarshalText([]byte(*flagMapSize)); err != nil {
-			return nil, fmt.Errorf("invalid --map-size %q: %w", *flagMapSize, err)
+		size, err := parseSize(*flagMapSize)
+		if err != nil {
+			return nil, err
 		}
-		if size.Bytes() == 0 {
-			return nil, fmt.Errorf("--map-size must be greater than 0")
-		}
-		opts.MapSize = int64(size.Bytes())
+		opts.MapSize = size
 	}
 	return opts, nil
+}
+
+// parseSize parses a human-readable byte size. All units are binary
+// multiples: datasize already treats "MB" as 1 MiB, and IEC suffixes like
+// "MiB" are normalized to the form it accepts.
+func parseSize(s string) (int64, error) {
+	norm := s
+	if strings.HasSuffix(norm, "iB") || strings.HasSuffix(norm, "ib") {
+		norm = norm[:len(norm)-2] + "B"
+	}
+	var size datasize.ByteSize
+	if err := size.UnmarshalText([]byte(norm)); err != nil {
+		return 0, fmt.Errorf("invalid --map-size %q: %w", s, err)
+	}
+	if size.Bytes() == 0 {
+		return 0, fmt.Errorf("--map-size must be greater than 0")
+	}
+	return int64(size.Bytes()), nil
 }
 
 func parseVersion(s string) (lmdb.LMDBVersion, error) {

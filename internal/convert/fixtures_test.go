@@ -269,3 +269,21 @@ func fixturePaths(t *testing.T) (srcPath, dstPath string) {
 	dir := t.TempDir()
 	return filepath.Join(dir, "src"), filepath.Join(dir, "dst")
 }
+
+// TestBuildSampleEnv is a manual helper, not a real test: it builds a
+// fixture database at LMDBCONVERT_SAMPLE_OUT for end-to-end testing of
+// the CLI, e.g.:
+//
+//	LMDBCONVERT_SAMPLE_OUT=/tmp/src09 go test ./internal/convert -run TestBuildSampleEnv
+func TestBuildSampleEnv(t *testing.T) {
+	path := os.Getenv("LMDBCONVERT_SAMPLE_OUT")
+	if path == "" {
+		t.Skip("set LMDBCONVERT_SAMPLE_OUT to build a sample database")
+	}
+	ver := lmdb.V09
+	if os.Getenv("LMDBCONVERT_SAMPLE_VERSION") == "1.0" {
+		ver = lmdb.V10
+	}
+	buildFixture(t, path, ver, false, 57)
+	t.Logf("built sample %s database at %s", ver, path)
+}
