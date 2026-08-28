@@ -41,6 +41,12 @@ type Options struct {
 	// this.
 	PrevSnapshot bool
 
+	// ResetTxnID skips raising the destination's transaction ID to match
+	// the source's, leaving it at the low value produced by the copy
+	// itself. Must not be used with LightningStream, which depends on the
+	// transaction ID.
+	ResetTxnID bool
+
 	Progress progress.Reporter
 	Log      *slog.Logger
 }
@@ -163,7 +169,16 @@ func Run(opts Options) (*Result, error) {
 			"snapshot_txn_id", p.snapshotTxnID, "current_txn_id", info.LastTxnID)
 	}
 
-	if err := padTxnID(dstEnv, p.snapshotTxnID, opts); err != nil {
+	finalTxnID := p.snapshotTxnID
+	if opts.ResetTxnID {
+		info, err := dstEnv.Info()
+		if err != nil {
+			return nil, err
+		}
+		finalTxnID = info.LastTxnID
+		opts.Log.Info("not matching the source transaction ID (--reset-txnid)",
+			"dest_txn_id", finalTxnID, "source_txn_id", p.snapshotTxnID)
+	} else if err := padTxnID(dstEnv, p.snapshotTxnID, opts); err != nil {
 		return nil, err
 	}
 
@@ -193,7 +208,7 @@ func Run(opts Options) (*Result, error) {
 		DestVersion:   p.dstVer,
 		DBIs:          len(p.dbis),
 		Entries:       p.totalEntries,
-		TxnID:         p.snapshotTxnID,
+		TxnID:         finalTxnID,
 		MapSize:       p.mapSize,
 		Duration:      time.Since(start),
 	}

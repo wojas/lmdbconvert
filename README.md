@@ -43,7 +43,8 @@ next to the source unless `--no-lock` is given).
   on it. The copy happens in a single write transaction, after which the
   destination's transaction ID is raised to the source's by committing
   dummy write transactions (a `Put`+`Del` of a sentinel key, since LMDB
-  does not increment the transaction ID for empty commits).
+  does not increment the transaction ID for empty commits). This can be
+  disabled with `--reset-txnid` (see below).
 - **The map size is copied from the source** unless overridden with
   `--map-size` (e.g. `--map-size 1GB`; all units are binary multiples).
 
@@ -56,6 +57,11 @@ Run `lmdbconvert --help` for the full list. Notable ones:
 - `--force` removes an existing destination first. It only removes the
   data and lock files, and refuses if the destination is not an LMDB
   database or an empty directory.
+- `--reset-txnid` skips raising the destination's transaction ID to
+  match the source's; the destination keeps the low transaction ID from
+  the copy itself, which is faster for sources with very high transaction
+  IDs. **Warning:** this cannot be used with LightningStream, which
+  depends on the transaction ID.
 - `--prev-snapshot` converts the source's previous snapshot instead of
   the latest transaction (LMDB keeps the two most recent), e.g. to
   recover from a corrupted last commit. The destination then ends at the

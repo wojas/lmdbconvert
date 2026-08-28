@@ -158,6 +158,50 @@ func TestConvert_ForceOverwrite(t *testing.T) {
 	checkConverted(t, src, dst, false, lmdb.V09, lmdb.V10)
 }
 
+func TestConvert_ResetTxnID(t *testing.T) {
+	src, dst := fixturePaths(t)
+	buildFixture(t, src, lmdb.V09, false, fixtureTxnID)
+
+	res := runConvert(t, Options{
+		Source:        src,
+		Dest:          dst,
+		TargetVersion: lmdb.V10,
+		ResetTxnID:    true,
+	})
+	// The whole copy happens in a single write transaction, so without
+	// padding the destination stays at transaction ID 1.
+	if res.TxnID != 1 {
+		t.Errorf("result TxnID = %d, want 1", res.TxnID)
+	}
+
+	env := openTestEnv(t, dst, lmdb.V10, false, true)
+	defer env.Close()
+	info, err := env.Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.LastTxnID != 1 {
+		t.Errorf("destination LastTxnID = %d, want 1", info.LastTxnID)
+	}
+	err = env.View(func(txn *lmdb.Txn) error {
+		dbi, err := txn.OpenDBI("plain", 0)
+		if err != nil {
+			return err
+		}
+		st, err := txn.Stat(dbi)
+		if err != nil {
+			return err
+		}
+		if st.Entries != 200 {
+			t.Errorf("plain has %d entries, want 200", st.Entries)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestConvert_PrevSnapshot(t *testing.T) {
 	src, dst := fixturePaths(t)
 	buildFixture(t, src, lmdb.V10, false, fixtureTxnID)
