@@ -39,7 +39,7 @@ next to the source unless `--no-lock` is given).
   `INTEGERKEY`, `INTEGERDUP` and `REVERSEDUP` are read from the source
   and applied to the destination databases.
 - **The last transaction ID is preserved.** Applications like
-  [LightningStream](https://github.com/PowerDNS/lightningstream) depend
+  [Lightning Stream](https://github.com/PowerDNS/lightningstream) depend
   on it. The copy happens in a single write transaction, after which the
   destination's transaction ID is raised to the source's by committing
   dummy write transactions (a `Put`+`Del` of a sentinel key, since LMDB
@@ -60,7 +60,8 @@ Run `lmdbconvert --help` for the full list. Notable ones:
 - `--reset-txnid` skips raising the destination's transaction ID to
   match the source's; the destination keeps the low transaction ID from
   the copy itself, which is faster for sources with very high transaction
-  IDs. **Warning:** this cannot be used with LightningStream, which
+  IDs. **Warning:** this cannot be used with
+  [Lightning Stream](https://github.com/PowerDNS/lightningstream), which
   depends on the transaction ID.
 - `--prev-snapshot` converts the source's previous snapshot instead of
   the latest transaction (LMDB keeps the two most recent), e.g. to

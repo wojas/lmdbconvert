@@ -14,7 +14,7 @@ var padSentinelKey = []byte("\x00lmdbconvert.txnid-pad")
 
 // padTxnID raises the destination's last committed transaction ID to
 // target by committing dummy write transactions. Applications like
-// LightningStream depend on the transaction ID, so a converted database
+// Lightning Stream depend on the transaction ID, so a converted database
 // must end at the same ID as the source.
 //
 // Committing an empty write transaction does NOT increment the

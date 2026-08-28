@@ -43,7 +43,7 @@ type Options struct {
 
 	// ResetTxnID skips raising the destination's transaction ID to match
 	// the source's, leaving it at the low value produced by the copy
-	// itself. Must not be used with LightningStream, which depends on the
+	// itself. Must not be used with Lightning Stream, which depends on the
 	// transaction ID.
 	ResetTxnID bool
 
