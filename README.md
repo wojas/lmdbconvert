@@ -41,10 +41,9 @@ next to the source unless `--no-lock` is given).
 - **The last transaction ID is preserved.** Applications like
   [Lightning Stream](https://github.com/PowerDNS/lightningstream) depend
   on it. The copy happens in a single write transaction, after which the
-  destination's transaction ID is raised to the source's by committing
-  dummy write transactions (a `Put`+`Del` of a sentinel key, since LMDB
-  does not increment the transaction ID for empty commits). This can be
-  disabled with `--reset-txnid` (see below).
+  closed destination's metapages are updated directly to restore the
+  source transaction ID without replaying every intervening transaction.
+  This can be disabled with `--reset-txnid` (see below).
 - **The map size is copied from the source** unless overridden with
   `--map-size` (e.g. `--map-size 1GB`; all units are binary multiples).
 
@@ -59,8 +58,7 @@ Run `lmdbconvert --help` for the full list. Notable ones:
   database or an empty directory.
 - `--reset-txnid` skips raising the destination's transaction ID to
   match the source's; the destination keeps the low transaction ID from
-  the copy itself, which is faster for sources with very high transaction
-  IDs. **Warning:** this cannot be used with
+  the copy itself. **Warning:** this cannot be used with
   [Lightning Stream](https://github.com/PowerDNS/lightningstream), which
   depends on the transaction ID.
 - `--prev-snapshot` converts the source's previous snapshot instead of
@@ -156,6 +154,6 @@ go mod edit -replace github.com/PowerDNS/lmdb-go/v2=../lmdb-go
 - `cmd/lmdbconvert/` — the conversion CLI; more utilities may be added
   under `cmd/` over time.
 - `internal/convert/` — the conversion pipeline (preflight checks, copy,
-  transaction-ID padding, verification).
+  transaction-ID restoration, verification).
 - `internal/lmdbpath/` — database path/layout resolution.
 - `internal/progress/` — progress reporting (log steps and ANSI bar).

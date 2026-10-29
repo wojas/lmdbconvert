@@ -86,6 +86,21 @@ func TestConvert_NoSubdir(t *testing.T) {
 	checkConverted(t, src, dst, true, lmdb.V09, lmdb.V10)
 }
 
+// TestConvert_WriteMap verifies that closing a writable mapping before the
+// offline transaction-ID restore leaves a valid converted database.
+func TestConvert_WriteMap(t *testing.T) {
+	src, dst := fixturePaths(t)
+	buildFixture(t, src, lmdb.V09, false, fixtureTxnID)
+
+	runConvert(t, Options{
+		Source:        src,
+		Dest:          dst,
+		TargetVersion: lmdb.V10,
+		WriteMap:      true,
+	})
+	checkConverted(t, src, dst, false, lmdb.V09, lmdb.V10)
+}
+
 func TestConvert_DataMdbPath(t *testing.T) {
 	src, dst := fixturePaths(t)
 	buildFixture(t, src, lmdb.V09, false, fixtureTxnID)
@@ -263,55 +278,5 @@ func TestConvert_PrevSnapshot(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-// TestEmptyCommitDoesNotIncrementTxnID pins the engine behavior that the
-// transaction ID padding in pad.go depends on: an empty write transaction
-// does not increment the transaction ID, while a Put+Del of the same key
-// in one transaction increments it by exactly one.
-func TestEmptyCommitDoesNotIncrementTxnID(t *testing.T) {
-	for _, ver := range []lmdb.Format{lmdb.V09, lmdb.V10} {
-		t.Run(ver.String(), func(t *testing.T) {
-			env := openTestEnv(t, filepath.Join(t.TempDir(), "env"), ver, false, false)
-			defer env.Close()
-
-			txnID := func() int64 {
-				info, err := env.Info()
-				if err != nil {
-					t.Fatal(err)
-				}
-				return info.LastTxnID
-			}
-
-			before := txnID()
-			err := env.Update(func(txn *lmdb.Txn) error {
-				_, err := txn.OpenRoot(0)
-				return err
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := txnID(); got != before {
-				t.Errorf("empty commit changed LastTxnID from %d to %d", before, got)
-			}
-
-			err = env.Update(func(txn *lmdb.Txn) error {
-				root, err := txn.OpenRoot(0)
-				if err != nil {
-					return err
-				}
-				if err := txn.Put(root, padSentinelKey, []byte{}, 0); err != nil {
-					return err
-				}
-				return txn.Del(root, padSentinelKey, nil)
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := txnID(); got != before+1 {
-				t.Errorf("Put+Del commit moved LastTxnID from %d to %d, want +1", before, got)
-			}
-		})
 	}
 }
