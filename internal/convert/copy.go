@@ -81,9 +81,8 @@ func (a *appendPutter) flags(key []byte) uint {
 
 // copyAll creates all destination DBIs with the source flags and copies
 // all data. By default everything happens in a single write transaction,
-// so the destination ends at transaction ID 1 and padTxnID only ever needs
-// to count upward. With BatchSize > 0 the destination commits every
-// BatchSize entries instead.
+// so the destination ends at transaction ID 1. With BatchSize > 0 the
+// destination commits every BatchSize entries instead.
 func copyAll(srcTxn *lmdb.Txn, dstEnv *lmdb.Env, p *plan, opts Options) error {
 	if len(p.dbis) == 0 {
 		return nil

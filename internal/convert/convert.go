@@ -179,23 +179,6 @@ func Run(opts Options) (*Result, error) {
 			"snapshot_txn_id", p.snapshotTxnID, "current_txn_id", info.LastTxnID)
 	}
 
-	finalTxnID := p.snapshotTxnID
-	if opts.ResetTxnID {
-		info, err := dstEnv.Info()
-		if err != nil {
-			return nil, err
-		}
-		finalTxnID = info.LastTxnID
-		opts.Log.Info("not matching the source transaction ID (--reset-txnid)",
-			"dest_txn_id", finalTxnID, "source_txn_id", p.snapshotTxnID)
-	} else if err := padTxnID(dstEnv, p.snapshotTxnID, opts); err != nil {
-		return nil, err
-	}
-
-	// The destination was opened with NoSync; make everything durable.
-	if err := dstEnv.Sync(true); err != nil {
-		return nil, fmt.Errorf("sync destination: %w", err)
-	}
 	dstInfo, err := dstEnv.Info()
 	if err != nil {
 		return nil, err
@@ -204,10 +187,36 @@ func Run(opts Options) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	finalTxnID := p.snapshotTxnID
+	if opts.ResetTxnID {
+		finalTxnID = dstInfo.LastTxnID
+		opts.Log.Info("not matching the source transaction ID (--reset-txnid)",
+			"dest_txn_id", finalTxnID, "source_txn_id", p.snapshotTxnID)
+	} else if dstInfo.LastTxnID > p.snapshotTxnID {
+		return nil, fmt.Errorf("destination transaction ID %d exceeds the source's %d; "+
+			"rerun without --batch-size to preserve the transaction ID",
+			dstInfo.LastTxnID, p.snapshotTxnID)
+	} else if dstInfo.LastTxnID < p.snapshotTxnID {
+		opts.Log.Info("restoring destination transaction ID to match the source",
+			"current", dstInfo.LastTxnID, "target", p.snapshotTxnID)
+	}
+
+	// The destination was opened with NoSync; make all data pages durable
+	// before publishing a higher transaction ID in the metapages.
+	if err := dstEnv.Sync(true); err != nil {
+		return nil, fmt.Errorf("sync destination: %w", err)
+	}
 	if err := dstEnv.Close(); err != nil {
 		return nil, fmt.Errorf("close destination: %w", err)
 	}
 	dstEnv = nil
+	if !opts.ResetTxnID && dstInfo.LastTxnID < p.snapshotTxnID {
+		if err := restoreTxnID(p.dstPath.DataFile(), p.dstVer, int(dstStat.PSize),
+			dstInfo.LastTxnID, p.snapshotTxnID); err != nil {
+			return nil, fmt.Errorf("restore destination transaction ID: %w", err)
+		}
+	}
 	dstUsed := (dstInfo.LastPNO + 1) * int64(dstStat.PSize)
 	var dstFileSize int64
 	if st, serr := os.Stat(p.dstPath.DataFile()); serr == nil {
@@ -224,6 +233,10 @@ func Run(opts Options) (*Result, error) {
 	}
 	if gotVer != p.dstVer {
 		return nil, fmt.Errorf("destination has format %s, expected %s", gotVer, p.dstVer)
+	}
+	if err := verifyEnvironmentTxnID(p.dstPath.EnvPath, p.dstPath.NoSubdir,
+		p.dstVer, finalTxnID); err != nil {
+		return nil, fmt.Errorf("verify destination transaction ID: %w", err)
 	}
 
 	opts.Log.Info("size statistics",
